@@ -1,0 +1,117 @@
+%% Shardnet arXiv-style pandoc template
+%% Requires: fontspec, fancyhdr, geometry, hyperref, xcolor, amsmath, booktabs,
+%%           longtable, array, graphicx, microtype, parskip, listings, lmodern
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{fontspec}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{parskip}
+\usepackage{listings}
+
+% ── Page geometry ─────────────────────────────────────────────────────────────
+\geometry{a4paper, top=25mm, bottom=25mm, left=22mm, right=22mm, headheight=15pt}
+
+% ── Colors ────────────────────────────────────────────────────────────────────
+\definecolor{linkblue}{RGB}{0,64,128}
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codefr}{RGB}{200,200,200}
+
+% ── Hyperref ──────────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=linkblue,
+  urlcolor=linkblue,
+  citecolor=linkblue,
+  pdftitle={$title$},
+  pdfauthor={$author$},
+  pdfsubject={Shardnet Protocol Specification},
+  pdfkeywords={P2P, DHT, Reed-Solomon, encrypted storage, distributed systems}
+}
+
+% ── Headers / footers ─────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{Shardnet Protocol Specification}}
+\fancyhead[R]{\small\textit{v$version$}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% ── Section heading style (manual, no titlesec) ───────────────────────────────
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-14pt \@plus -4pt \@minus -2pt}%
+  {6pt \@plus 2pt}%
+  {\normalfont\large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-10pt \@plus -2pt \@minus -2pt}%
+  {4pt \@plus 1pt}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
+% ── Code listings ─────────────────────────────────────────────────────────────
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single, framerule=0.4pt, rulecolor=\color{codefr},
+  breaklines=true, breakatwhitespace=true,
+  showstringspaces=false,
+  xleftmargin=6pt, xrightmargin=6pt,
+  aboveskip=8pt, belowskip=8pt
+}
+
+% ── Table styling ─────────────────────────────────────────────────────────────
+\renewcommand{\arraystretch}{1.3}
+
+% ── pandoc compatibility ──────────────────────────────────────────────────────
+\usepackage{calc}
+\providecommand{\tightlist}{\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}}
+\providecommand{\pandocbounded}[1]{#1}
+% \real{x} is used by pandoc 3.x for proportional table column widths via calc
+\providecommand{\real}[1]{#1}
+\setlength{\emergencystretch}{3em}
+% Fix "No counter 'none' defined" with longtable in some pandoc versions
+\makeatletter
+\@ifundefined{c@none}{\newcounter{none}}{}
+\makeatother
+
+% ── Document ──────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title block ───────────────────────────────────────────────────────────────
+\begin{center}
+  {\LARGE\bfseries $title$}\par\vspace{8pt}
+  {\large $author$}\par\vspace{4pt}
+  {\small Version $version$ \quad|\quad $date$}\par\vspace{4pt}
+  {\small
+    \href{https://shardnet.app/whitepaper}{shardnet.app/whitepaper} \quad|\quad
+    \href{https://github.com/stablediffusion-ai/shard}{github.com/stablediffusion-ai/shard}
+  }
+\end{center}
+\vspace{6pt}\hrule\vspace{10pt}
+
+% ── Table of contents ─────────────────────────────────────────────────────────
+$if(toc)$
+{
+  \hypersetup{linkcolor=black}
+  \setcounter{tocdepth}{$toc-depth$}
+  \tableofcontents
+}
+\vspace{10pt}\hrule\vspace{14pt}
+$endif$
+
+% ── Body ──────────────────────────────────────────────────────────────────────
+$body$
+
+\end{document}

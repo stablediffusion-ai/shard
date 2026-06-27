@@ -1,0 +1,178 @@
+use std::net::SocketAddr;
+use std::time::Duration;
+use tracing::{debug, warn};
+use tokio::time::sleep;
+
+use crate::context::Node;
+use crate::packet::DspPacket;
+use crate::dht::NodeId;
+use crate::error::{Result, ShardError};
+use crate::transport;
+
+const MAX_RETRIES: u32 = 3;
+const INITIAL_BACKOFF_MS: u64 = 200;
+
+pub async fn send_packet(node: &Node, packet: DspPacket, target: SocketAddr, target_id: Option<NodeId>) -> Result<()> {
+    let serialized_data = packet.serialize()?;
+    let mut current_backoff = Duration::from_millis(INITIAL_BACKOFF_MS);
+
+    for attempt in 0..=MAX_RETRIES {
+        let conn_result = transport::get_or_connect(node, target, target_id).await;
+
+        match conn_result {
+            Ok(connection) => {
+                match connection.open_uni().await {
+                    Ok(mut stream) => {
+                        if let Err(e) = stream.write_all(&serialized_data).await {
+                            debug!("Write failed to {}: {}", target, e);
+                        } else {
+                            if let Err(e) = stream.finish() {
+                                debug!("Finish stream failed to {}: {}", target, e);
+                            } else {
+                                return Ok(());
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        debug!("Open stream failed to {}: {}", target, e);
+                    }
+                }
+            },
+            Err(e) => {
+                debug!("Connection failed to {}: {}", target, e);
+            }
+        }
+
+        if attempt < MAX_RETRIES {
+            // Only remove connection on last attempt to avoid thrashing during hole punch
+            if attempt == MAX_RETRIES - 1 {
+                let mut guard = node.inner.connections.write().await;
+                guard.remove(&target);
+            }
+            sleep(current_backoff).await;
+            current_backoff *= 2;
+        }
+    }
+
+    // Ensure cleanup on final failure
+    {
+        let mut guard = node.inner.connections.write().await;
+        guard.remove(&target);
+    }
+    
+    Err(ShardError::Network(format!("Failed to send packet to {} after {} retries", target, MAX_RETRIES)))
+}
+
+pub async fn send_packet_reliable(node: &Node, packet: DspPacket, target: SocketAddr, target_id: Option<NodeId>) -> Result<()> {
+    debug!("Reliable send init to {} (Type: {:?})", target, packet.msg_type);
+
+    // 1. Try Direct
+    let direct_result = tokio::time::timeout(
+        Duration::from_millis(1000), // Reduced timeout for faster fallback
+        send_packet(node, packet.clone(), target, target_id)
+    ).await;
+
+    match direct_result {
+        Ok(Ok(_)) => return Ok(()),
+        Ok(Err(e)) => debug!("Direct send to {} failed: {}", target, e),
+        Err(_) => debug!("Direct send to {} timed out", target),
+    }
+
+    // 2. Try Hole Punching (Relay)
+    if let Some(tid) = target_id {
+        let closest_nodes = node.inner.routing_table.read().await.find_closest_nodes(&tid, crate::dht::K_PARAM);
+        
+        let relays: Vec<&crate::dht::Node> = closest_nodes.iter()
+            .filter(|n| !transport::is_same_node(n.address, target))
+            .take(3)
+            .collect();
+
+        if relays.is_empty() {
+            debug!("No relay candidates found for target {}", target);
+        }
+
+        for relay in relays {
+            let relay_addr = transport::resolve_peer_addr(node, relay).await;
+            debug!("Attempting NAT punch via relay {}", relay_addr);
+            
+            // A. Trigger Relay (Ask target to connect to us)
+            if let Err(e) = initiate_nat_punch(node, tid, relay_addr).await {
+                 debug!("Failed to contact relay: {}", e);
+                 continue;
+            }
+
+            // B. IMMEDIATE FIREWALL OPENING (Crucial Fix)
+            // Do not wait. Start connecting immediately to punch our own firewall 
+            // so the incoming packet from Target (triggered by Relay) is accepted.
+            // We spawn this to not block if it hangs, effectively doing "Simultaneous Open".
+            let node_clone = node.clone();
+            let packet_clone = packet.clone();
+            let tid_clone = Some(tid);
+            
+            // Retry loop for the punched connection
+            tokio::spawn(async move {
+                // Try to push the packet multiple times rapidly to traverse NAT
+                for _ in 0..3 {
+                    if send_packet(&node_clone, packet_clone.clone(), target, tid_clone).await.is_ok() {
+                        debug!("Hole punch delivery success to {}", target);
+                        break;
+                    }
+                    sleep(Duration::from_millis(200)).await;
+                }
+            });
+
+            // Wait a bit to see if it worked, otherwise try next strategy
+            sleep(Duration::from_millis(500)).await;
+            
+            // Check if connected (optimization)
+            {
+                let conns = node.inner.connections.read().await;
+                if let Some(conn) = conns.get(&target) {
+                    if conn.close_reason().is_none() {
+                        return Ok(());
+                    }
+                }
+            }
+
+            // C. Fallback: Tunneling
+            debug!("NAT Punch uncertain. Tunneling data via {}", relay_addr);
+            if send_via_relay(node, packet.clone(), tid).await.is_ok() {
+                debug!("Relayed delivery success via {}", relay_addr);
+                return Ok(());
+            }
+        }
+    }
+    
+    // Cleanup if all failed
+    node.remove_peer(target).await;
+    Err(ShardError::Network(format!("Reliable delivery failed to {}", target)))
+}
+
+async fn initiate_nat_punch(node: &Node, target_id: NodeId, relay_addr: SocketAddr) -> Result<()> {
+    // Access public address from dynamic state (Arc<RwLock>), not static config
+    let local_hint = *node.inner.public_address.read().await;
+
+    let payload = bincode::serialize(&crate::packet::NatPunchReqPayload {
+        target_id: target_id.0.to_vec(),
+        local_hint,
+    })?;
+    let pkt = DspPacket::new(crate::packet::PacketType::NatPunchRequest, 0, 0, payload);
+    send_packet(node, pkt, relay_addr, None).await
+}
+
+async fn send_via_relay(node: &Node, packet: DspPacket, target_id: NodeId) -> Result<()> {
+    let closest = node.inner.routing_table.read().await.find_closest_nodes(&target_id, 1);
+    if let Some(relay) = closest.first() {
+         let relay_addr = transport::resolve_peer_addr(node, relay).await;
+         let inner_data = packet.serialize()?;
+         
+         let payload = bincode::serialize(&crate::packet::RelayPayload {
+             target_id: target_id.0.to_vec(),
+             inner_packet: inner_data,
+         })?;
+         
+         let wrapper = DspPacket::new(crate::packet::PacketType::RelayData, 0, 0, payload);
+         return send_packet(node, wrapper, relay_addr, Some(relay.id)).await;
+    }
+    Err(ShardError::Network("No relay found".to_string()))
+}

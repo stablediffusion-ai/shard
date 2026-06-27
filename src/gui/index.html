@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shard Node</title>
+  <style>
+    :root {
+      --ground:   #0A0A0A;
+      --surface:  #111111;
+      --surface2: #1A1A1A;
+      --border:   #2A2A2A;
+      --text:     #E8E8E8;
+      --muted:    #666666;
+      --cyan:     #C0C0C0;
+      --amber:    #888888;
+      --red:      #CC4444;
+      --green:    #808080;
+      --mono: "SF Mono","Fira Code","Cascadia Code","Consolas",monospace;
+      --r: 5px;
+    }
+
+    [data-theme="light"] {
+      --ground:   #F5F5F2;
+      --surface:  #EBEBEA;
+      --surface2: #E0E0DE;
+      --border:   #C4C4C2;
+      --text:     #1A1A1A;
+      --muted:    #7A7A7A;
+      --cyan:     #2A5F5F;
+      --amber:    #7A6040;
+      --red:      #B83030;
+      --green:    #3A7040;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--ground);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 1.1rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 0.45rem;
+      flex-shrink: 0;
+    }
+    .logo-name { font-size: 0.88rem; font-weight: 700; letter-spacing: -0.02em; }
+    .logo-name span { color: var(--cyan); }
+    .logo-tag { font-size: 0.5rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .header-chips {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex: 1;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      font-size: 0.54rem;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.25em 0.65em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+    .chip strong { color: var(--text); }
+    .chip.active { color: var(--cyan); border-color: rgba(72,201,201,0.35); }
+    .chip.active strong { color: var(--cyan); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .theme-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0.2em 0.5em;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .theme-btn:hover { color: var(--text); border-color: var(--cyan); }
+
+    .ws-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.38rem;
+      font-size: 0.52rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.28em 0.7em;
+      flex-shrink: 0;
+    }
+    .ws-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--border);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .ws-chip.connected { color: var(--cyan); border-color: rgba(72,201,201,0.3); }
+    .ws-chip.connected .ws-dot { background: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
+    .ws-chip.error { color: var(--red); border-color: rgba(255,56,104,0.3); }
+    .ws-chip.error .ws-dot { background: var(--red); box-shadow: 0 0 5px var(--red); }
+
+    /* ── Layout grid ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      overflow: hidden;
+    }
+
+    .s-title {
+      font-size: 0.48rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.55rem;
+    }
+
+    /* ── Form primitives ── */
+    input[type="text"], input[type="file"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 0.38em 0.6em;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: var(--cyan); }
+    input[type="file"] { padding: 0.28em; cursor: pointer; }
+    input[type="file"]::file-selector-button {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      padding: 0.18em 0.45em;
+      cursor: pointer;
+      margin-right: 0.5em;
+    }
+
+    .btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.04em;
+      padding: 0.38em 0.7em;
+      cursor: pointer;
+      transition: border-color 0.18s, color 0.18s, background 0.18s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .btn:active { opacity: 0.75; }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+    .btn-primary { border-color: rgba(72,201,201,0.45); color: var(--cyan); }
+    .btn-primary:hover { background: rgba(72,201,201,0.08); border-color: var(--cyan); }
+
+    .btn-danger { border-color: rgba(255,56,104,0.4); color: var(--red); }
+    .btn-danger:hover { background: rgba(255,56,104,0.07); border-color: var(--red); }
+
+    .row {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    /* ── View switcher ── */
+    .nav-tabs {
+      display: flex;
+      align-items: stretch;
+      border-top: 1px solid var(--border);
+      padding: 0 0.9rem;
+    }
+    .nav-tab {
+      font-size: 0.52rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0 0.85rem;
+      cursor: pointer;
+      color: var(--muted);
+      border: none;
+      background: none;
+      font-family: var(--mono);
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      display: flex;
+      align-items: center;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+    /* ── Main area ── */
+    main {
+      display: grid;
+      grid-template-rows: 11fr 2fr;
+      overflow: hidden;
+      background: var(--ground);
+      background-image: radial-gradient(circle, rgba(180,170,230,0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    /* ── Reader view ── */
+    #reader-view {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--ground);
+      background-image: radial-gradient(circle, rgba(180,170,230,0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .reader-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .reader-progress {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, var(--cyan) 50%, transparent 100%);
+      background-size: 40% 100%;
+      background-repeat: no-repeat;
+      animation: shimmer 1.1s linear infinite;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+    .reader-progress.active { opacity: 1; }
+    @keyframes shimmer {
+      from { background-position: -60% 0; }
+      to   { background-position: 160% 0; }
+    }
+
+    .reader-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 0.38em 0.7em;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .reader-input:focus { border-color: var(--cyan); }
+
+    .reader-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem 2.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .reader-empty {
+      text-align: center;
+      font-size: 0.58rem;
+      color: var(--muted);
+      opacity: 0.35;
+      font-style: italic;
+      padding: 4rem 0;
+    }
+
+    .reader-loading {
+      text-align: center;
+      font-size: 0.58rem;
+      color: var(--cyan);
+      opacity: 0.6;
+      padding: 4rem 0;
+      animation: pulse-fade 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse-fade {
+      0%, 100% { opacity: 0.3; }
+      50%       { opacity: 0.8; }
+    }
+
+    .reader-error {
+      font-size: 0.62rem;
+      color: var(--red);
+      background: rgba(255,56,104,0.06);
+      border: 1px solid rgba(255,56,104,0.22);
+      border-radius: 4px;
+      padding: 0.7rem 0.9rem;
+      max-width: 520px;
+      margin: 2.5rem auto;
+      line-height: 1.6;
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+    }
+
+    .be-label {
+      font-size: 0.44rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--red);
+      background: rgba(255,56,104,0.1);
+      border: 1px solid rgba(255,56,104,0.3);
+      border-radius: 3px;
+      padding: 0.12em 0.5em;
+      flex-shrink: 0;
+      align-self: center;
+    }
+
+    /* ── Files view ── */
+    #files-view {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      padding: 2rem 2.5rem;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .files-card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-width: 560px;
+      width: 100%;
+    }
+
+    .files-card .s-title { margin-bottom: 0; }
+
+    /* ── Settings view ── */
+    #settings-view {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 2rem 2.5rem;
+      gap: 2rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .settings-section {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      overflow: hidden;
+      max-width: 640px;
+    }
+
+    .settings-section-title {
+      font-size: 0.52rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.55rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      gap: 0.75rem;
+    }
+    .settings-row:last-child { border-bottom: none; }
+
+    .settings-label {
+      font-size: 0.6rem;
+      color: var(--muted);
+      flex: 0 0 140px;
+    }
+
+    .settings-value {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-copy {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      font-size: 0.52rem;
+      padding: 0.18em 0.55em;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .settings-copy:hover { color: var(--text); border-color: var(--cyan); }
+
+    .settings-badge {
+      font-size: 0.48rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.12em 0.5em;
+      border-radius: 3px;
+      border: 1px solid;
+      flex-shrink: 0;
+    }
+    .settings-badge.seed { color: var(--amber); border-color: rgba(200,180,80,0.4); background: rgba(200,180,80,0.07); }
+    .settings-badge.node { color: var(--muted); border-color: var(--border); }
+
+    .settings-form-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1rem;
+    }
+
+    .settings-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 0.38em 0.7em;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .settings-input:focus { border-color: var(--cyan); }
+
+    /* ── Markdown ── */
+    .md-wrap { max-width: 700px; margin: 0 auto; }
+    .md-h1 { font-size: 1.35rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; margin: 0 0 0.9rem; }
+    .md-h2 { font-size: 1.05rem; font-weight: 600; color: var(--text); margin: 1.4rem 0 0.5rem; }
+    .md-h3 { font-size: 0.88rem; font-weight: 600; color: var(--text); margin: 1rem 0 0.4rem; }
+    .md-h4, .md-h5, .md-h6 { font-size: 0.78rem; font-weight: 600; color: var(--text); margin: 0.8rem 0 0.3rem; }
+    .md-p { font-size: 0.72rem; color: var(--muted); line-height: 1.75; margin: 0 0 0.65rem; }
+    .md-pre { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 0.75rem 1rem; margin: 0.7rem 0; overflow-x: auto; }
+    .md-pre code { font-family: var(--mono); font-size: 0.62rem; color: var(--cyan); white-space: pre; }
+    .md-ic { font-family: var(--mono); font-size: 0.66rem; color: var(--cyan); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 0.05em 0.35em; }
+    .md-a { color: var(--cyan); text-decoration: none; }
+    .md-a:hover { text-decoration: underline; }
+    .md-list { font-size: 0.72rem; color: var(--muted); line-height: 1.75; padding-left: 1.5rem; margin: 0 0 0.65rem; }
+    .md-list li { margin-bottom: 0.18rem; }
+    .md-bq { border-left: 3px solid var(--amber); background: rgba(245,200,66,0.04); padding: 0.45rem 0.9rem; margin: 0.7rem 0; border-radius: 0 4px 4px 0; }
+    .md-bq p { font-size: 0.7rem; color: var(--muted); font-style: italic; margin: 0; line-height: 1.6; }
+    .md-hr { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+
+    /* ── Chat panel ── */
+    #chat-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .chat-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.52rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-wrap: wrap;
+    }
+
+    .chat-bar-label { font-size: 0.48rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+    .chat-room-name { font-size: 0.7rem; font-weight: 600; color: var(--cyan); }
+    .chat-room-none { font-size: 0.62rem; color: var(--muted); opacity: 0.55; font-style: italic; }
+
+    .chat-join-area { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .chat-msg {
+      display: flex;
+      gap: 0.55rem;
+      align-items: baseline;
+      padding: 0.28rem 0.45rem;
+      border-radius: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--cyan);
+      font-size: 0.6rem;
+      line-height: 1.5;
+      animation: slide-in 0.12s ease;
+    }
+    .chat-msg.own {
+      border-left-color: var(--amber);
+      background: rgba(245,200,66,0.035);
+    }
+
+    .msg-ts { color: var(--muted); flex-shrink: 0; font-size: 0.53rem; opacity: 0.55; }
+    .msg-sender { color: var(--cyan); flex-shrink: 0; min-width: 9ch; }
+    .chat-msg.own .msg-sender { color: var(--amber); }
+    .msg-body { color: var(--text); word-break: break-word; flex: 1; }
+
+    .chat-empty {
+      text-align: center;
+      font-size: 0.58rem;
+      color: var(--muted);
+      opacity: 0.38;
+      font-style: italic;
+      padding: 2.5rem 0;
+    }
+
+    .chat-send-row {
+      display: flex;
+      gap: 0.45rem;
+      padding: 0.52rem 0.9rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    #chat-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 0.38em 0.65em;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #chat-input:focus { border-color: var(--cyan); }
+    #chat-input:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ── Bottom row ── */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      overflow: hidden;
+    }
+
+    /* ── Files panel ── */
+    #files-panel {
+      padding: 0.65rem 0.8rem;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .sub-label {
+      font-size: 0.46rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      opacity: 0.65;
+    }
+
+    #upload-progress {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    #upload-progress.show { display: block; }
+    #upload-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), var(--amber));
+      width: 0%;
+      transition: width 0.25s;
+    }
+
+    .file-result {
+      font-size: 0.57rem;
+      padding: 0.3rem 0.42rem;
+      border-radius: 3px;
+      display: none;
+    }
+    .file-result.show { display: block; }
+    .file-result.ok {
+      color: var(--green);
+      background: rgba(76,201,122,0.07);
+      border: 1px solid rgba(76,201,122,0.22);
+    }
+    .file-result.err {
+      color: var(--red);
+      background: rgba(255,56,104,0.07);
+      border: 1px solid rgba(255,56,104,0.22);
+    }
+
+    .magnet-display {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .magnet-val {
+      color: var(--amber);
+      font-size: 0.54rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .magnet-link {
+      color: var(--amber);
+      text-decoration: underline;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 0.82em;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    .magnet-link:hover { opacity: 0.7; }
+
+    /* ── Event log ── */
+    #events-panel {
+      padding: 0.65rem 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .events-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.42rem;
+      flex-shrink: 0;
+    }
+
+    .event-log {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.22rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .ev-row {
+      display: flex;
+      gap: 0.45rem;
+      font-size: 0.54rem;
+      line-height: 1.4;
+      animation: fade-in 0.1s ease;
+    }
+    .ev-ts { color: var(--muted); flex-shrink: 0; opacity: 0.5; }
+    .ev-tag {
+      flex-shrink: 0;
+      font-size: 0.48rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      min-width: 5ch;
+    }
+    .ev-tag.log { color: var(--muted); }
+    .ev-tag.xfer { color: var(--amber); }
+    .ev-tag.status { color: var(--cyan); }
+    .ev-tag.chat { color: var(--cyan); }
+    .ev-body { color: var(--text); opacity: 0.65; word-break: break-word; flex: 1; }
+
+    .log-empty {
+      font-size: 0.54rem;
+      color: var(--muted);
+      opacity: 0.38;
+      font-style: italic;
+      text-align: center;
+      padding: 0.6rem 0;
+    }
+
+    /* ── Toast ── */
+    #toasts {
+      position: fixed;
+      bottom: 1.1rem;
+      right: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      z-index: 200;
+      pointer-events: none;
+    }
+    .toast {
+      font-size: 0.58rem;
+      padding: 0.45rem 0.8rem;
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      max-width: 300px;
+      animation: toast-in 0.18s ease;
+      pointer-events: auto;
+    }
+    .toast.ok { border-color: rgba(76,201,122,0.4); color: var(--green); }
+    .toast.err { border-color: rgba(255,56,104,0.4); color: var(--red); }
+
+    /* ── Animations ── */
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-5px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (max-width: 780px) {
+      html, body { overflow: hidden; } /* keep fixed viewport on APK WebView */
+      main { grid-template-rows: 1fr auto; }
+      #chat-panel { min-height: 0; }
+      .bottom-row { grid-template-columns: 1fr; }
+      /* Mobile/APK: EVENTS moves to FILES view */
+      #events-panel { display: none; }
+      #files-events-panel { display: flex !important; }
+    }
+    @media (min-width: 781px) {
+      /* Desktop: EVENTS stays in HOME */
+      #files-events-panel { display: none; }
+
+      /* CORE-004: raise base font — browser default is 16px, 13px was too small */
+      html, body { font-size: 16px; }
+
+      /* CORE-004: rescale smallest rem values that were illegible at 13px base */
+      .logo-tag { font-size: 0.62rem; }
+      .msg-ts   { font-size: 0.65rem; }
+
+      /* CORE-004 + CORE-005: nav tab size and vertical centering */
+      .nav-tabs {
+        padding: 0 0.9rem;
+        min-height: 2rem;
+      }
+      .nav-tab {
+        font-size: 0.65rem;
+        /* top > bottom by 2px to compensate for border-bottom: 2px in the box model */
+        padding: 0.5rem 0.85rem 0.3rem;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+
+    /* ── Mobile (≤ 480px) ── */
+    @media (max-width: 480px) {
+      html, body { font-size: 15px; }
+
+      /* Larger tap targets for fingers */
+      .btn {
+        padding: 0.55em 0.8em;
+        min-height: 44px;
+        font-size: 0.72rem;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      /* 16px prevents browser auto-zoom on iOS; good practice on Android too */
+      input[type="text"], input[type="file"], #chat-input, .reader-input {
+        font-size: 1rem;
+        min-height: 44px;
+        padding: 0.5em 0.65em;
+      }
+
+      .nav-tab {
+        padding: 0 0.6rem;
+        min-height: 44px;
+        font-size: 0.62rem;
+      }
+
+      /* Header chips are too dense to read; node-id fits in the ws-chip */
+      .header-chips { display: none; }
+
+      /* Safe-area padding so the chat bar clears the home-bar on modern phones */
+      .chat-bar {
+        padding: 0.55rem 0.75rem;
+        padding-bottom: max(0.55rem, env(safe-area-inset-bottom));
+      }
+
+      .reader-content { padding: 1rem 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="header-top">
+      <div class="logo">
+        <span class="logo-name">Shard <span>Node</span></span>
+        <span class="logo-tag">DSP v0.9</span>
+      </div>
+      <div class="header-chips">
+        <span class="chip" id="chip-id" title="">id —</span>
+        <span class="chip" id="chip-peers">0 peers</span>
+        <span class="chip" id="chip-room">no room</span>
+      </div>
+      <div class="header-right">
+        <div class="ws-chip" id="ws-chip">
+          <span class="ws-dot"></span>
+          <span id="ws-label">connecting</span>
+        </div>
+        <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">◑</button>
+      </div>
+    </div>
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-view="home"     onclick="switchView('home')">Home</button>
+      <button class="nav-tab"        data-view="reader"   onclick="switchView('reader')">Reader</button>
+      <button class="nav-tab"        data-view="files"    onclick="switchView('files')">Files</button>
+      <button class="nav-tab"        data-view="settings" onclick="switchView('settings')">Settings</button>
+    </nav>
+  </header>
+
+  <div class="layout">
+
+
+    <!-- ── Home view ── -->
+    <main id="home-view">
+
+      <!-- Chat -->
+      <div id="chat-panel">
+        <div class="chat-bar">
+          <span class="chat-bar-label">Room</span>
+          <span id="chat-room-display" class="chat-room-none">not joined</span>
+          <div class="chat-join-area">
+            <input type="text" id="room-input" placeholder="room name" style="width:108px" />
+            <button class="btn btn-primary" id="btn-join" onclick="doJoin()">Join</button>
+            <button class="btn btn-danger" id="btn-leave" onclick="doLeave()" style="display:none">Leave</button>
+          </div>
+        </div>
+
+        <div id="chat-messages">
+          <div class="chat-empty" id="chat-placeholder">Join a room to start chatting</div>
+        </div>
+
+        <div class="chat-send-row">
+          <input type="text" id="chat-input" placeholder="Message… (Enter to send)" disabled />
+          <button class="btn btn-primary" id="btn-send" onclick="doSend()" disabled>Send</button>
+        </div>
+      </div>
+
+      <!-- Bottom: Events -->
+      <div class="bottom-row">
+        <div id="events-panel">
+          <div class="events-header">
+            <span class="s-title" style="margin-bottom:0">Events</span>
+            <button class="btn" style="font-size:0.5rem;padding:0.2em 0.45em" onclick="clearLog()">Clear</button>
+          </div>
+          <div class="event-log" id="event-log-home">
+            <div class="log-empty">Waiting for events&hellip;</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── Reader view ── -->
+    <div id="reader-view" style="display:none">
+      <div class="reader-bar">
+        <input type="text" id="reader-magnet" class="reader-input" placeholder="paste shard magnet…" autocomplete="off" spellcheck="false" />
+        <button class="btn btn-primary" id="btn-read" onclick="doRead()">Go</button>
+        <div id="reader-progress" class="reader-progress"></div>
+      </div>
+      <div class="reader-content" id="reader-content">
+        <div class="reader-empty">Paste a shard magnet to read</div>
+      </div>
+    </div>
+
+    <!-- ── Files view ── -->
+    <div id="files-view" style="display:none">
+
+      <!-- Upload -->
+      <div class="files-card">
+        <div class="s-title">Upload</div>
+        <div class="row">
+          <input type="file" id="upload-file" />
+          <button class="btn btn-primary" onclick="doUpload()">Upload</button>
+        </div>
+        <div id="upload-progress"><div id="upload-fill"></div></div>
+        <div class="file-result ok" id="upload-result">
+          <div style="margin-bottom:0.3rem">Magnet link ready:</div>
+          <div class="magnet-display">
+            <span class="magnet-val" id="upload-magnet"></span>
+            <button class="btn" style="font-size:0.5rem;padding:0.2em 0.45em" onclick="copyMagnet()">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Download -->
+      <div class="files-card">
+        <div class="s-title">Download</div>
+        <div class="row">
+          <input type="text" id="download-magnet" placeholder="paste magnet link" autocomplete="off" spellcheck="false" />
+          <button class="btn" onclick="doDownload()">Get</button>
+        </div>
+        <div class="file-result ok" id="download-result"></div>
+      </div>
+
+      <!-- Events (mobile/APK only — hidden on desktop via CSS) -->
+      <div id="files-events-panel" style="display:none;flex-direction:column;padding:0.65rem 0.8rem;gap:0">
+        <div class="events-header">
+          <span class="s-title" style="margin-bottom:0">Events</span>
+          <button class="btn" style="font-size:0.5rem;padding:0.2em 0.45em" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="event-log" id="event-log-files">
+          <div class="log-empty">Waiting for events&hellip;</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Settings view ── -->
+    <div id="settings-view" style="display:none">
+
+      <div class="settings-section">
+        <div class="settings-section-title">Node</div>
+        <div class="settings-row">
+          <span class="settings-label">Node ID</span>
+          <span class="settings-value" id="st-node-id">—</span>
+          <button class="settings-copy" onclick="copyNodeId()">copy</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Bound address</span>
+          <span class="settings-value" id="st-bound-addr">—</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Connected peers</span>
+          <span class="settings-value" id="st-peers">—</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Mode</span>
+          <span id="st-mode" class="settings-badge node">node</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Storage</div>
+        <div class="settings-row">
+          <span class="settings-label">Path</span>
+          <span class="settings-value" id="st-storage-path">—</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Used</span>
+          <span class="settings-value" id="st-storage-used">—</span>
+        </div>
+        <div class="settings-form-row">
+          <span class="settings-label">Quota (bytes)</span>
+          <input type="number" id="cfg-quota" class="settings-input" style="flex:0 0 140px" min="10000000" step="1" autocomplete="off" />
+          <span class="settings-value" id="cfg-quota-hint" style="min-width:4rem"></span>
+        </div>
+        <div class="settings-form-row">
+          <span class="settings-label">Retention (sec)</span>
+          <input type="number" id="cfg-retention" class="settings-input" style="flex:0 0 140px" min="3600" step="1" autocomplete="off" />
+          <span class="settings-value" id="cfg-retention-hint" style="min-width:4rem"></span>
+        </div>
+        <div class="settings-form-row">
+          <span class="settings-label">Cleanup interval (sec)</span>
+          <input type="number" id="cfg-cleanup" class="settings-input" style="flex:0 0 140px" min="60" step="1" autocomplete="off" />
+          <span class="settings-value" id="cfg-cleanup-hint" style="min-width:4rem"></span>
+        </div>
+        <div class="settings-form-row">
+          <button class="btn btn-primary" onclick="saveConfig()">Save config</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Network — connect to peer</div>
+        <div class="settings-form-row">
+          <input type="text" id="st-bootstrap-addr" class="settings-input"
+            placeholder="host:port  e.g. sh4rd.net:9100" autocomplete="off" spellcheck="false" />
+          <button class="btn btn-primary" onclick="doSettingsBootstrap()">Connect</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="toasts"></div>
+
+  <script>
+    'use strict';
+
+    // ── Theme ─────────────────────────────────────────────────────────────────
+    function setTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      localStorage.setItem('shard-theme', t);
+      document.getElementById('theme-btn').textContent = t === 'light' ? '◐' : '◑';
+    }
+    function toggleTheme() {
+      setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    }
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let myNodeId = null;
+    let currentRoom = null;
+
+    // ── View switcher (BRW-02) ────────────────────────────────────────────────
+    function switchView(view) {
+      document.getElementById('home-view').style.display     = view === 'home'     ? '' : 'none';
+      document.getElementById('reader-view').style.display   = view === 'reader'   ? '' : 'none';
+      document.getElementById('files-view').style.display    = view === 'files'    ? '' : 'none';
+      document.getElementById('settings-view').style.display = view === 'settings' ? '' : 'none';
+      document.querySelectorAll('.nav-tab').forEach(t =>
+        t.classList.toggle('active', t.dataset.view === view)
+      );
+      if (view === 'reader')   document.getElementById('reader-magnet').focus();
+      if (view === 'settings') loadSettings();
+    }
+
+    // ── Markdown renderer (BRW-04) ────────────────────────────────────────────
+    function renderMarkdown(raw) {
+      const escH = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      const escA = s => escH(s).replace(/'/g,'&#39;');
+
+      const inline = src => {
+        const codes = [], links = [];
+        src = src.replace(/`([^`\n]+)`/g, (_, c) => { codes.push(`<code class="md-ic">${escH(c)}</code>`); return `\x01${codes.length-1}\x01`; });
+        src = src.replace(/\[([^\]\n]*)\]\(([^)\n]*)\)/g, (_, t, u) => {
+          const safe = /^https?:\/\//.test(u) ? u : '#';
+          links.push(`<a class="md-a" href="${escA(safe)}" target="_blank" rel="noopener">${escH(t)}</a>`);
+          return `\x02${links.length-1}\x02`;
+        });
+        src = escH(src);
+        src = src.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+        src = src.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        src = src.replace(/__(.+?)__/g, '<strong>$1</strong>');
+        src = src.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        src = src.replace(/_(.+?)_/g, '<em>$1</em>');
+        src = src.replace(/~~(.+?)~~/g, '<del>$1</del>');
+        src = src.replace(/\x01(\d+)\x01/g, (_, i) => codes[+i]);
+        src = src.replace(/\x02(\d+)\x02/g, (_, i) => links[+i]);
+        return src;
+      };
+
+      const blocks = {};
+      let text = raw.replace(/```([\w-]*)\n?([\s\S]*?)```/gm, (_, lang, code) => {
+        const id = Object.keys(blocks).length;
+        blocks[id] = `<pre class="md-pre"><code>${escH(code.replace(/\n$/, ''))}</code></pre>`;
+        return `\n\x00B${id}\x00\n`;
+      });
+
+      const out = [], lines = text.split('\n');
+      let i = 0, listType = null, listItems = [], para = [];
+
+      const flushList = () => {
+        if (!listType) return;
+        out.push(`<${listType} class="md-list">${listItems.join('')}</${listType}>`);
+        listType = null; listItems = [];
+      };
+      const flushPara = () => {
+        if (!para.length) return;
+        out.push(`<p class="md-p">${para.map(inline).join('<br>')}</p>`);
+        para.length = 0;
+      };
+
+      while (i < lines.length) {
+        const line = lines[i];
+
+        if (/^\x00B\d+\x00$/.test(line.trim())) {
+          flushPara(); flushList();
+          out.push(blocks[+line.match(/\d+/)[0]]);
+          i++; continue;
+        }
+        const hm = line.match(/^(#{1,6}) (.*)/);
+        if (hm) {
+          flushPara(); flushList();
+          const n = hm[1].length;
+          out.push(`<h${n} class="md-h${n}">${inline(hm[2])}</h${n}>`);
+          i++; continue;
+        }
+        if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+          flushPara(); flushList();
+          out.push('<hr class="md-hr">');
+          i++; continue;
+        }
+        if (line.startsWith('> ')) {
+          flushPara(); flushList();
+          const bq = [];
+          while (i < lines.length && lines[i].startsWith('> ')) { bq.push(lines[i].slice(2)); i++; }
+          out.push(`<blockquote class="md-bq"><p>${inline(bq.join('\n'))}</p></blockquote>`);
+          continue;
+        }
+        const ulm = line.match(/^[-*+] (.*)/);
+        if (ulm) {
+          flushPara();
+          if (listType !== 'ul') { flushList(); listType = 'ul'; }
+          listItems.push(`<li>${inline(ulm[1])}</li>`);
+          i++; continue;
+        }
+        const olm = line.match(/^\d+\. (.*)/);
+        if (olm) {
+          flushPara();
+          if (listType !== 'ol') { flushList(); listType = 'ol'; }
+          listItems.push(`<li>${inline(olm[1])}</li>`);
+          i++; continue;
+        }
+        if (line.trim() === '') {
+          flushPara(); flushList();
+          i++; continue;
+        }
+        flushList();
+        para.push(line);
+        i++;
+      }
+      flushPara(); flushList();
+      return `<div class="md-wrap">${out.join('\n')}</div>`;
+    }
+
+    // ── Read ──────────────────────────────────────────────────────────────────
+    const READER_ERRORS = {
+      400: ['MAGNET',  'Invalid magnet link — check the format and try again.'],
+      413: ['SIZE',    'File too large to read — limit is 512 KB.'],
+      415: ['FORMAT',  'Not a markdown file — only .md and .markdown can be read.'],
+      422: ['BINARY',  'Content is not valid text — cannot render.'],
+      503: ['NETWORK', 'Shard unreachable — not enough peers or file not found in the swarm.'],
+    };
+
+    function readerError(status, raw) {
+      const [label, msg] = READER_ERRORS[status] || ['ERROR', esc(raw)];
+      return `<div class="reader-error"><span class="be-label">${label}</span>${msg}</div>`;
+    }
+
+    async function doRead() {
+      const magnet   = document.getElementById('reader-magnet').value.trim();
+      if (!magnet) return;
+
+      const content  = document.getElementById('reader-content');
+      const btn      = document.getElementById('btn-read');
+      const progress = document.getElementById('reader-progress');
+
+      btn.disabled = true;
+      progress.classList.add('active');
+      content.innerHTML = '<div class="reader-loading">Fetching shard…</div>';
+
+      try {
+        const res  = await fetch('/api/files/preview', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ magnet }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          content.innerHTML = renderMarkdown(data.content || '');
+        } else {
+          content.innerHTML = readerError(res.status, data.error || res.statusText);
+        }
+      } catch (_) {
+        content.innerHTML = readerError(0, 'Connection lost — is the node running?');
+      } finally {
+        btn.disabled = false;
+        progress.classList.remove('active');
+      }
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+    async function loadSettings() {
+      try {
+        const s = await call('GET', '/api/status');
+        document.getElementById('st-node-id').textContent      = s.node_id || '—';
+        document.getElementById('st-bound-addr').textContent   = s.bound_addr || '—';
+        document.getElementById('st-peers').textContent        = s.peers_count != null ? s.peers_count + ' peer(s)' : '—';
+        document.getElementById('st-storage-path').textContent = s.storage_path || '—';
+        const fmt    = b => b >= 1e9 ? (b/1e9).toFixed(1)+' GB' : b >= 1e6 ? (b/1e6).toFixed(0)+' MB' : (b/1e3).toFixed(0)+' KB';
+        const fmtDur = n => n >= 86400 ? (n/86400).toFixed(1)+'d' : n >= 3600 ? (n/3600).toFixed(1)+'h' : (n/60).toFixed(0)+'min';
+        if (s.storage_max != null) {
+          const pct = s.storage_max > 0 ? Math.round(s.storage_used / s.storage_max * 100) : 0;
+          document.getElementById('st-storage-used').textContent = `${fmt(s.storage_used)} / ${fmt(s.storage_max)} (${pct}%)`;
+          document.getElementById('cfg-quota').value         = s.storage_max;
+          document.getElementById('cfg-quota-hint').textContent = fmt(s.storage_max);
+        }
+        if (s.retention_sec != null) {
+          document.getElementById('cfg-retention').value          = s.retention_sec;
+          document.getElementById('cfg-retention-hint').textContent = fmtDur(s.retention_sec);
+        }
+        if (s.cleanup_sec != null) {
+          document.getElementById('cfg-cleanup').value          = s.cleanup_sec;
+          document.getElementById('cfg-cleanup-hint').textContent = fmtDur(s.cleanup_sec);
+        }
+        const modeEl = document.getElementById('st-mode');
+        if (s.is_seed) {
+          modeEl.textContent = 'seed'; modeEl.className = 'settings-badge seed';
+        } else {
+          modeEl.textContent = 'node'; modeEl.className = 'settings-badge node';
+        }
+      } catch (_) {}
+    }
+
+    function copyNodeId() {
+      const val = document.getElementById('st-node-id').textContent;
+      if (val && val !== '—') navigator.clipboard.writeText(val).then(() => toast('Node ID copied'));
+    }
+
+    async function saveConfig() {
+      const quota   = parseInt(document.getElementById('cfg-quota').value,    10);
+      const ret     = parseInt(document.getElementById('cfg-retention').value, 10);
+      const cleanup = parseInt(document.getElementById('cfg-cleanup').value,   10);
+      const body = {};
+      if (!isNaN(quota))   body.quota_bytes          = quota;
+      if (!isNaN(ret))     body.retention_sec        = ret;
+      if (!isNaN(cleanup)) body.cleanup_interval_sec = cleanup;
+      if (!Object.keys(body).length) return;
+      try {
+        await call('PATCH', '/api/config', body);
+        toast('Config saved');
+        loadSettings();
+      } catch (e) {
+        toast('Save failed: ' + (e.message || e));
+      }
+    }
+
+    async function doSettingsBootstrap() {
+      const addr = document.getElementById('st-bootstrap-addr').value.trim();
+      if (!addr) return;
+      try {
+        const r = await call('POST', '/api/bootstrap', { addr });
+        toast('Connected — ' + r.peers + ' peer(s)');
+        loadSettings();
+      } catch (e) { toast(e.message, 'error'); }
+    }
+
+    // ── Utils ─────────────────────────────────────────────────────────────────
+    const ts = () => new Date().toLocaleTimeString('en', { hour12: false });
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const short = hex => hex ? hex.slice(0, 10) + '…' : '?';
+
+    const PEER_NAMES = [
+      'Ada','Ade','Aiko','Alec','Alma','Amos','Anja','Ara','Ari','Axel',
+      'Bea','Bela','Ben','Bo','Boris','Bram','Cal','Cleo','Cole','Cora',
+      'Dana','Dani','Dev','Dov','Eli','Emil','Era','Eva','Finn','Flora',
+      'Flo','Gil','Gus','Hana','Hans','Ian','Ida','Ines','Iris','Ivan',
+      'Jade','Jan','Jax','Jin','Jo','Jon','Joy','Jun','Kai','Kaz',
+      'Kim','Kira','Koa','Lars','Lea','Leo','Lena','Lin','Liz','Lou',
+      'Luc','Mae','Marc','Max','Mel','Mia','Mir','Nate','Ned','Neo',
+      'Nia','Nils','Noa','Noel','Nora','Olga','Ole','Omar','Oscar','Otto',
+      'Pan','Pat','Paz','Per','Pim','Pia','Raf','Rex','Rio','Rob',
+      'Rosa','Roy','Rui','Sai','Sam','Sara','Seb','Sid','Sol','Sue',
+      'Suki','Tao','Ted','Tim','Tom','Tove','Uma','Ulf','Val','Vera',
+      'Vic','Wren','Yael','Yuki','Zara','Zed','Zen','Zia','Zoe','Zola',
+      'Abe','Ace','Ai','Akira','Alva','Ami','Asha','Avi','Ayo','Bao',
+      'Bay','Bix','Blu','Brin','Cai','Cara','Cato','Ceri','Ciel','Cyan',
+      'Dag','Dara','Dex','Dima','Dion','Dora','Drew','Echo','Eda','Eden',
+      'Elif','Elsa','Emre','Eno','Eri','Faye','Fern','Fox','Gene','Gio',
+      'Glen','Grey','Hiro','Ike','Ilya','Ina','Jora','Jude','Jules','Juno',
+      'Kael','Kali','Kana','Kei','Kit','Lake','Lalo','Lane','Lani','Lark',
+      'Lev','Linh','Lior','Loa','Lore','Mads','Mael','Mali','Malu','Manu',
+      'Mara','Maro','Meta','Miko','Mila','Milo','Mio','Miri','Nabi','Nao',
+      'Nara','Neve','Nico','Nima','Oak','Obi','Ori','Pax','Penn','Peri',
+      'Rael','Rafi','Rain','Ravi','Reed','Remi','Ren','Riv','Roan','Romy',
+      'Rue','Rumi','Rune','Sage','Sana','Saya','Shea','Shu','Sky','Tae',
+      'Tai','Tara','Taro','Tia','Tobi','Tui','Veda','Vela','Yara','Zion',
+    ];
+    const _nameCache = {}; // 8-char-prefix → display name
+    function peerName(id) {
+      if (!id) return '?';
+      const key = id.slice(0, 8); // normalize: peer messages arrive as 8-char prefix
+      if (!_nameCache[key]) {
+        let h = 0;
+        for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+        _nameCache[key] = PEER_NAMES[h % PEER_NAMES.length];
+      }
+      return _nameCache[key];
+    }
+
+    function renderContent(content) {
+      const RE = /(?<![A-Za-z0-9_-])([A-Za-z0-9_-]{86})(?![A-Za-z0-9_-])/g;
+      let out = '', last = 0, m;
+      while ((m = RE.exec(content)) !== null) {
+        out += esc(content.slice(last, m.index));
+        const mag = m[1]; // base64url — no HTML-special chars
+        const label = mag.slice(0, 8) + '…' + mag.slice(-4);
+        out += `<span class="magnet-link" title="${mag}" onclick="switchView('reader');document.getElementById('reader-magnet').value='${mag}';doRead()">${label}</span>`;
+        last = m.index + mag.length;
+      }
+      out += esc(content.slice(last));
+      return out;
+    }
+
+    function toast(msg, type = '') {
+      const el = document.createElement('div');
+      el.className = 'toast' + (type ? ' ' + type : '');
+      el.textContent = msg;
+      document.getElementById('toasts').prepend(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    async function call(method, path, body) {
+      const opts = { method, headers: {} };
+      if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+      const res = await fetch(path, opts);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+
+    // ── Status polling ────────────────────────────────────────────────────────
+    async function pollStatus() {
+      try {
+        const s = await call('GET', '/api/status');
+        myNodeId = s.node_id;
+
+        // Header chips
+        document.getElementById('chip-id').textContent = 'id ' + short(s.node_id);
+        document.getElementById('chip-id').title = s.node_id;
+        document.getElementById('chip-peers').textContent = s.peers_count + (s.peers_count === 1 ? ' peer' : ' peers');
+
+        // Sync room state if it changed externally
+        const serverRoom = s.in_room || null;
+        if (serverRoom !== currentRoom) setRoom(serverRoom);
+      } catch (_) {}
+    }
+
+    // ── Room UI ───────────────────────────────────────────────────────────────
+    function setRoom(room) {
+      currentRoom = room;
+      const joined = room !== null;
+
+      const display = document.getElementById('chat-room-display');
+      display.textContent   = joined ? '#' + room : 'not joined';
+      display.className     = joined ? 'chat-room-name' : 'chat-room-none';
+
+      document.getElementById('btn-join').style.display  = joined ? 'none' : '';
+      document.getElementById('btn-leave').style.display = joined ? '' : 'none';
+      document.getElementById('room-input').style.display = joined ? 'none' : '';
+
+      document.getElementById('chat-input').disabled = !joined;
+      document.getElementById('btn-send').disabled   = !joined;
+      if (joined) document.getElementById('chat-input').focus();
+
+      const chip = document.getElementById('chip-room');
+      chip.textContent = joined ? '#' + room : 'no room';
+      chip.className   = joined ? 'chip active' : 'chip';
+
+      const ph = document.getElementById('chat-placeholder');
+      if (ph && joined) ph.textContent = 'No messages yet in #' + room;
+    }
+
+    // ── Chat ──────────────────────────────────────────────────────────────────
+    async function doJoin() {
+      const room = document.getElementById('room-input').value.trim();
+      if (!room) return;
+      try {
+        await call('POST', '/api/chat/join', { room });
+        setRoom(room);
+        toast('Joined #' + room, 'ok');
+        // Announce own display name so peers can map our ID → name
+        const savedName = localStorage.getItem('displayName');
+        if (savedName) {
+          if (myNodeId) _nameCache[myNodeId.slice(0, 8)] = savedName;
+          call('POST', '/api/chat/send', { content: '\x1fNAME:' + savedName }).catch(() => {});
+        }
+      } catch (e) {
+        toast('Join failed: ' + e.message, 'err');
+      }
+    }
+
+    async function doLeave() {
+      try {
+        await call('POST', '/api/chat/leave');
+        setRoom(null);
+        toast('Left room', 'ok');
+      } catch (e) {
+        toast('Leave failed: ' + e.message, 'err');
+      }
+    }
+
+    async function doSend() {
+      const input = document.getElementById('chat-input');
+      const content = input.value.trim();
+      if (!content) return;
+      if (content.startsWith('/name ')) {
+        const newName = content.slice(6).trim();
+        if (newName) {
+          localStorage.setItem('displayName', newName);
+          if (myNodeId) _nameCache[myNodeId.slice(0, 8)] = newName;
+          if (currentRoom) call('POST', '/api/chat/send', { content: '\x1fNAME:' + newName }).catch(() => {});
+          toast(`Name set to "${newName}"`, 'ok');
+        }
+        input.value = '';
+        return;
+      }
+      try {
+        await call('POST', '/api/chat/send', { content });
+        input.value = '';
+      } catch (e) {
+        toast('Send failed: ' + e.message, 'err');
+      }
+    }
+
+    function appendChat(sender, content) {
+      // Silent name announcement from a peer — update cache, don't display
+      if (content && content.startsWith('\x1fNAME:')) {
+        const name = content.slice('\x1fNAME:'.length).trim(); // was slice(7): off-by-one, dropped first char
+        if (name && sender) _nameCache[sender.slice(0, 8)] = name;
+        return;
+      }
+      const isOwn = myNodeId && sender === myNodeId;
+      // Own messages: prefer localStorage (instant, no round-trip); others: look up sender in cache
+      const displayName = isOwn
+        ? (localStorage.getItem('displayName') || peerName(sender))
+        : peerName(sender);
+      const box = document.getElementById('chat-messages');
+      const ph = document.getElementById('chat-placeholder');
+      if (ph) ph.remove();
+
+      const el = document.createElement('div');
+      el.className = 'chat-msg' + (isOwn ? ' own' : '');
+      el.innerHTML =
+        `<span class="msg-ts">${ts()}</span>` +
+        `<span class="msg-sender" title="${esc(sender)}">${esc(displayName)}</span>` +
+        `<span class="msg-body">${renderContent(content)}</span>`;
+      box.appendChild(el);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Keyboard shortcuts
+    document.getElementById('chat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+    });
+    document.getElementById('reader-magnet').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doRead();
+    });
+    document.getElementById('room-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doJoin();
+    });
+    document.getElementById('download-magnet').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doDownload();
+    });
+
+    // ── File upload ───────────────────────────────────────────────────────────
+    async function doUpload() {
+      const fileInput = document.getElementById('upload-file');
+      if (!fileInput.files.length) { toast('Choose a file first', 'err'); return; }
+
+      const bar  = document.getElementById('upload-progress');
+      const fill = document.getElementById('upload-fill');
+      const res  = document.getElementById('upload-result');
+      res.classList.remove('show');
+      bar.classList.add('show');
+      fill.style.width = '4%';
+
+      // Animate fake progress while waiting; real chunk progress arrives via WS
+      let pct = 4;
+      const tick = setInterval(() => {
+        pct = Math.min(pct + 2, 82);
+        fill.style.width = pct + '%';
+      }, 350);
+
+      const form = new FormData();
+      form.append('file', fileInput.files[0]);
+
+      try {
+        const r = await fetch('/api/files/upload', { method: 'POST', body: form });
+        const data = await r.json().catch(() => ({}));
+        clearInterval(tick);
+
+        if (!r.ok) throw new Error(data.error || r.statusText);
+
+        fill.style.width = '100%';
+        setTimeout(() => { bar.classList.remove('show'); fill.style.width = '0%'; }, 700);
+
+        document.getElementById('upload-magnet').textContent = data.magnet;
+        document.getElementById('upload-magnet').title = data.magnet;
+        res.classList.add('show');
+        toast('Upload complete', 'ok');
+      } catch (e) {
+        clearInterval(tick);
+        bar.classList.remove('show');
+        fill.style.width = '0%';
+        toast('Upload failed: ' + e.message, 'err');
+      }
+    }
+
+    function copyMagnet() {
+      const val = document.getElementById('upload-magnet').textContent;
+      navigator.clipboard.writeText(val).then(() => toast('Copied to clipboard', 'ok'));
+    }
+
+    // ── File download ─────────────────────────────────────────────────────────
+    async function doDownload() {
+      const magnet = document.getElementById('download-magnet').value.trim();
+      if (!magnet) return;
+      const result = document.getElementById('download-result');
+      result.className = 'file-result';
+      try {
+        const r = await call('POST', '/api/files/download', { magnet });
+        result.textContent = 'Saved to ' + r.path;
+        result.className = 'file-result ok show';
+        toast('Download complete', 'ok');
+      } catch (e) {
+        result.textContent = e.message;
+        result.className = 'file-result err show';
+        toast('Download failed: ' + e.message, 'err');
+      }
+    }
+
+    // ── Event log ─────────────────────────────────────────────────────────────
+    function logEvent(tag, body, tagClass) {
+      document.querySelectorAll('.event-log').forEach(log => {
+        const ph = log.querySelector('.log-empty');
+        if (ph) ph.remove();
+        const el = document.createElement('div');
+        el.className = 'ev-row';
+        el.innerHTML =
+          `<span class="ev-ts">${ts()}</span>` +
+          `<span class="ev-tag ${tagClass}">${esc(tag)}</span>` +
+          `<span class="ev-body">${esc(body)}</span>`;
+        log.prepend(el);
+        while (log.children.length > 120) log.removeChild(log.lastChild);
+      });
+    }
+
+    function clearLog() {
+      document.querySelectorAll('.event-log').forEach(log => {
+        log.innerHTML = '<div class="log-empty">No events yet</div>';
+      });
+    }
+
+    // ── WebSocket ─────────────────────────────────────────────────────────────
+    function wsConnect() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(proto + '//' + location.host + '/ws');
+      const chip = document.getElementById('ws-chip');
+      const label = document.getElementById('ws-label');
+
+      ws.addEventListener('open', () => {
+        chip.className = 'ws-chip connected';
+        label.textContent = 'connected';
+        // Auto-join the general lobby on first connect
+        if (!currentRoom) {
+          document.getElementById('room-input').value = 'general';
+          doJoin();
+        }
+      });
+
+      // Keepalive ping every 25s — prevents Android network stack from closing idle sockets.
+      const pingTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) ws.send('{"type":"ping"}');
+      }, 25000);
+
+      ws.addEventListener('close', () => {
+        clearInterval(pingTimer);
+        chip.className = 'ws-chip';
+        label.textContent = 'reconnecting';
+        setTimeout(wsConnect, 3000);
+      });
+
+      ws.addEventListener('error', () => {
+        chip.className = 'ws-chip error';
+        label.textContent = 'error';
+      });
+
+      ws.addEventListener('message', e => {
+        try {
+          const ev = JSON.parse(e.data);
+          const type = ev.type;
+          const p = ev.payload || {};
+
+          switch (type) {
+            case 'ChatMessage':
+              appendChat(p.sender, p.content);
+              break;
+
+            case 'TransferProgress': {
+              const pct = p.total_chunks > 0
+                ? Math.round((p.current_chunk / p.total_chunks) * 100)
+                : 0;
+              if (p.is_upload) {
+                const fill = document.getElementById('upload-fill');
+                document.getElementById('upload-progress').classList.add('show');
+                fill.style.width = Math.max(5, pct) + '%';
+              }
+              logEvent('xfer',
+                `${p.filename} ${p.current_chunk}/${p.total_chunks} (${p.is_upload ? 'up' : 'down'})`,
+                'xfer');
+              break;
+            }
+
+            case 'TransferComplete':
+              if (p.magnet) {
+                document.getElementById('upload-magnet').textContent = p.magnet;
+                document.getElementById('upload-magnet').title = p.magnet;
+                document.getElementById('upload-result').classList.add('show');
+                document.getElementById('upload-progress').classList.remove('show');
+              }
+              logEvent('xfer',
+                p.magnet ? `uploaded — ${p.filename}` : `downloaded — ${p.filename || p.path || '?'}`,
+                'xfer');
+              break;
+
+            case 'StatusChange':
+              logEvent('status', `${p.connected_peers} peers, online=${p.is_online}`, 'status');
+              pollStatus();
+              break;
+
+            case 'Log':
+              logEvent(p.level.toLowerCase(), p.message, 'log');
+              break;
+
+            default:
+              logEvent('ev', JSON.stringify(p), 'log');
+          }
+        } catch (_) {
+          logEvent('raw', e.data, 'log');
+        }
+      });
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    setTheme(localStorage.getItem('shard-theme') || 'light');
+    wsConnect();
+    pollStatus();
+    setInterval(pollStatus, 3000);
+  </script>
+</body>
+</html>

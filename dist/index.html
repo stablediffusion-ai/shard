@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Shardnet — Encrypted Distributed Storage</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Serverless peer-to-peer encrypted file storage. AES-256-GCM encryption, Reed-Solomon erasure coding, no servers, no accounts, no metadata leakage.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Shardnet">
+<link rel="canonical" href="https://shardnet.app/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://shardnet.app/">
+<meta property="og:title" content="Shardnet — Encrypted Distributed Storage">
+<meta property="og:description" content="Store and share files without servers. Encrypted on your device, split across the network. No accounts. No metadata.">
+<meta property="og:site_name" content="Shardnet">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Shardnet — Encrypted Distributed Storage">
+<meta name="twitter:description" content="Store and share files without servers. AES-256-GCM, Reed-Solomon 10+5, Kademlia DHT. No accounts, no metadata.">
+<meta name="twitter:image" content="https://shardnet.app/sh4rd.png">
+<meta name="twitter:image:alt" content="Shardnet logo">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="48x48" href="/sh4rd-48.png">
+<link rel="apple-touch-icon" href="/sh4rd-192.png">
+<meta name="theme-color" content="#100F0D">
+<meta name="msapplication-TileColor" content="#100F0D">
+<meta name="msapplication-TileImage" content="https://shardnet.app/sh4rd-192.png">
+<meta property="og:image" content="https://shardnet.app/sh4rd.png">
+<meta property="og:image:width" content="209">
+<meta property="og:image:height" content="210">
+<meta property="og:image:alt" content="Shardnet logo">
+<link rel="alternate" type="text/plain" title="LLM context" href="/llms.txt">
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Shardnet",
+  "alternateName": "sh4rd — DSP",
+  "applicationCategory": "Utility",
+  "operatingSystem": "Linux",
+  "description": "Serverless peer-to-peer encrypted file storage. Files are encrypted with AES-256-GCM, split into 15 Reed-Solomon shards, and distributed across a Kademlia DHT swarm. No central server, no accounts, no metadata leakage.",
+  "url": "https://shardnet.app/",
+  "downloadUrl": "https://shardnet.app/shard-cli",
+  "softwareVersion": "0.97.0",
+  "codeRepository": "https://github.com/stablediffusion-ai/shard/",
+  "programmingLanguage": "Rust",
+  "applicationSubCategory": "File Storage",
+  "inLanguage": "en",
+  "isAccessibleForFree": true,
+  "keywords": "P2P, encrypted file storage, distributed storage, QUIC, Kademlia, Reed-Solomon, AES-256-GCM, Ed25519, Argon2, CGNAT, hole punching, magnet link, Rust, self-hosted, decentralised",
+  "featureList": [
+    "AES-256-GCM end-to-end encryption",
+    "Reed-Solomon erasure coding (10+5)",
+    "Kademlia DHT peer discovery",
+    "QUIC/TLS transport with mutual authentication",
+    "Ed25519 node identity and message signing",
+    "Argon2id Sybil resistance proof-of-work",
+    "UDP hole punching and CGNAT traversal",
+    "TTL-bounded relay fallback",
+    "Token bucket rate limiting per source IP",
+    "Unix daemon mode",
+    "Static binary, no runtime dependencies",
+    "Dynamic IP support with periodic STUN refresh",
+    "Passive node mode: listen-only, no upload, no chat (--passive)",
+    "Inline markdown preview in terminal (/read, /browse kept as alias)",
+    "Peer display names in chat — deterministic first name per node ID, /name command to personalise",
+    "Magnet link detection in chat — highlighted and clickable, opens Reader view instantly",
+    "Node status command (/status) — ID, address, peers, room, storage usage and config",
+    "Storage quota, usage and retention config visible in GUI Settings and CLI /status",
+    "Android idle-state management — CPU WakeLock + QUIC keep-alive prevent background disconnection",
+    "Android orientation-change resilience — no Activity restart, WebView state preserved"
+  ],
+  "image": "https://shardnet.app/sh4rd.png",
+  "logo": "https://shardnet.app/sh4rd-192.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I send and receive messages?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open the Home tab and join a room by typing a room name and clicking Join. Any node that joins the same room name can send and receive messages in real time. Messages are signed with your Ed25519 node identity and relayed over encrypted QUIC connections — no server, no account required."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I upload and download a file?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open the Files tab. To upload, choose a file and click Upload — Shardnet encrypts it with AES-256-GCM, splits it into 15 Reed-Solomon shards (10 data + 5 parity), and distributes them across the swarm. You receive a magnet link to share. To download, paste a magnet link and click Get — the file is reassembled from any 10 of the 15 shards found in the swarm."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read a markdown file stored on Shardnet?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open the Reader tab, paste the magnet link of a markdown file (.md or .markdown), and click Go. The file is fetched from the swarm, reassembled, and rendered inline as formatted markdown — headings, code blocks, lists and links included. Maximum file size for inline preview is 512 KB. In the terminal CLI use /read <magnet> (/browse is kept as a backwards-compatible alias)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Who are the people named in the chat?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Each node is assigned a deterministic first name derived from its Ed25519 node ID — the same name appears on every peer so participants are recognisable across sessions. Type /name Alice in the chat input to broadcast a custom display name to the room. Your name is saved locally and re-announced each time you join. Magnet links shared in chat are highlighted and clickable, opening the Reader tab with the link pre-filled."
+      }
+    }
+  ]
+}
+</script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ground:        #100F0D;
+  --ground-raised: #1C1B18;
+  --surface:       #1C1B18;
+  --text:          #E6E2DA;
+  --text-dim:      #7A8290;
+  --accent:        #A8C8FF;
+  --rule:          #252320;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ground);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* ── HERO ──────────────────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  overflow: hidden;
+}
+
+#mesh {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 55% 65% at 50% 50%,
+    rgba(16,15,13,.75) 0%,
+    rgba(16,15,13,.15) 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 600px;
+}
+
+h1, h2, h3 { font-weight: inherit; font-size: inherit; }
+
+.logo {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(2.6rem, 8vw, 5.5rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 1.5rem;
+  color: var(--text);
+}
+
+.hero-brand {
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.7;
+  margin: -1rem 0 0.9rem;
+}
+
+.tagline {
+  font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+  color: var(--text-dim);
+  max-width: 420px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.75;
+}
+
+.cta-row {
+  display: flex;
+  gap: 0.875rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.4rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.btn-solid {
+  background: var(--accent);
+  color: var(--ground);
+  font-weight: 700;
+}
+.btn-solid:hover { opacity: 0.86; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(168,200,255,.3);
+}
+.btn-outline:hover { border-color: var(--accent); }
+
+.steps-intro {
+  font-size: clamp(0.85rem, 2vw, 0.98rem);
+  color: var(--text-dim);
+  font-style: italic;
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto 2rem;
+  line-height: 1.7;
+  border-left: 2px solid var(--accent);
+  padding-left: 1rem;
+  text-align: left;
+}
+
+.hero-ver {
+  margin-top: 2.5rem;
+  font-size: 0.72rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+/* ── SHARED SECTION WRAPPER ────────────────────────────────────── */
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 4rem 2rem;
+}
+
+/* ── FACTS ─────────────────────────────────────────────────────── */
+
+.facts { border-top: 1px solid var(--rule); padding-top: 0; }
+
+.fact {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  gap: 0 1.25rem;
+  padding: 1.75rem 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: start;
+}
+
+.fact-bar {
+  background: var(--accent);
+  align-self: stretch;
+  opacity: 0.35;
+}
+
+.fact-tag {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.8;
+  margin-bottom: 0.3rem;
+}
+
+.fact-main {
+  font-size: 1rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.fact-note {
+  font-size: 0.83rem;
+  color: var(--text-dim);
+  margin-top: 0.2rem;
+}
+
+/* ── HOW IT WORKS ──────────────────────────────────────────────── */
+
+.steps-wrap { padding-top: 0; }
+
+.steps-label {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 2rem;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.5rem;
+}
+
+.step-num {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--accent);
+  opacity: 0.5;
+  margin-bottom: 0.5rem;
+}
+
+.step-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.step-body {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.step-algo {
+  margin-top: 0.6rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72rem;
+  color: var(--accent);
+  opacity: 0.55;
+}
+
+/* ── USE CASES ─────────────────────────────────────────────────── */
+
+.uc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.75rem;
+}
+
+.uc-card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 1.6rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.uc-glyph {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.68rem;
+  color: var(--accent);
+  opacity: 0.55;
+  letter-spacing: 0.06em;
+}
+
+.uc-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.uc-body {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+  line-height: 1.65;
+}
+
+.uc-note {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.7rem;
+  color: var(--accent);
+  opacity: 0.5;
+  border-top: 1px solid var(--rule);
+}
+
+/* ── DOWNLOAD ──────────────────────────────────────────────────── */
+
+.dl-band {
+  background: var(--ground-raised);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.dl-band .wrap { padding: 3rem 2rem; }
+
+.dl-label {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1.75rem;
+}
+
+.dl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.dl-card {
+  background: var(--ground);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.dl-name {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.95rem;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+.dl-desc {
+  font-size: 0.83rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+  flex: 1;
+  margin-bottom: 1.25rem;
+}
+
+.dl-card .btn { justify-content: center; }
+
+/* ── HASHES ────────────────────────────────────────────────────── */
+
+.hashes-wrap { padding-top: 0; padding-bottom: 3rem; }
+
+.hashes-label {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1.25rem;
+}
+
+.hash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.75rem;
+}
+
+.hash-table tr {
+  border-bottom: 1px solid var(--rule);
+}
+
+.hash-table td {
+  padding: 0.65rem 0;
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.hash-table td:first-child {
+  color: var(--accent);
+  white-space: nowrap;
+  padding-right: 1.5rem;
+  opacity: 0.8;
+}
+
+.hash-table td:last-child {
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+/* ── FAQ ───────────────────────────────────────────────────────── */
+
+.faq-wrap {
+  padding: 3rem 2rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.faq-label {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1.75rem;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--rule);
+}
+
+.faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 1rem 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  user-select: none;
+}
+
+.faq-item summary::-webkit-details-marker { display: none; }
+
+.faq-item summary::after {
+  content: '+';
+  font-size: 1.1rem;
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.faq-item[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.faq-item p {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.7;
+  padding: 0 0 1.1rem;
+  margin: 0;
+}
+
+.faq-item code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82em;
+  color: var(--accent);
+  background: var(--ground-raised);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+/* ── FOOTER ────────────────────────────────────────────────────── */
+
+footer {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.75rem 2rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  font-size: 0.72rem;
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--text-dim);
+  opacity: 0.6;
+  gap: 1rem 2rem;
+}
+
+.footer-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.footer-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+footer a:hover { color: var(--accent); opacity: 1; }
+footer a:focus-visible { outline: 2px solid var(--accent); }
+
+@media (max-width: 520px) {
+  footer { grid-template-columns: 1fr; }
+  .footer-links { align-items: flex-start; }
+}
+
+/* ── RESPONSIVE ────────────────────────────────────────────────── */
+
+@media (max-width: 520px) {
+  .steps   { grid-template-columns: 1fr; gap: 1.75rem; }
+  .uc-grid { grid-template-columns: 1fr; }
+  .dl-grid { grid-template-columns: 1fr; }
+  footer   { justify-content: center; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  #mesh { display: none; }
+  .hero-veil { background: none; }
+}
+
+/* ── BENEFITS ──────────────────────────────────────────────────── */
+
+.benefits {
+  border-top: 1px solid var(--rule);
+  padding-top: 0;
+}
+
+.benefits p {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 1.8;
+  padding-left: 1.25rem;
+  border-left: 3px solid rgba(168,200,255,.18);
+  max-width: 580px;
+}
+
+/* ── PROTOCOL TABLE ────────────────────────────────────────────── */
+
+.proto-wrap { padding-top: 0; }
+
+.proto-label {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1.25rem;
+}
+
+.proto-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.proto-table tr { border-bottom: 1px solid var(--rule); }
+
+.proto-table td { padding: 0.6rem 0; vertical-align: top; }
+
+.proto-table td:first-child {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  width: 32%;
+  padding-right: 1rem;
+  white-space: nowrap;
+}
+
+.proto-table td:last-child { color: var(--text); }
+
+/* ── SECURITY GRID ─────────────────────────────────────────────── */
+
+.sec-wrap { padding-top: 0; }
+
+.sec-label {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1.5rem;
+}
+
+.sec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem 3rem;
+}
+
+.sec-name {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.65;
+  margin-bottom: 0.3rem;
+}
+
+.sec-body {
+  font-size: 0.83rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+/* ── PRIVACY NOTE ──────────────────────────────────────────────── */
+
+.privacy-note {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2rem;
+  font-size: 0.72rem;
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--text-dim);
+  opacity: 0.45;
+  line-height: 1.65;
+  border-top: 1px solid var(--rule);
+}
+
+@media (max-width: 520px) {
+  .sec-grid { grid-template-columns: 1fr; }
+}
+
+/* ── FOR AGENTS ────────────────────────────────────────────────── */
+
+.agent-pre {
+  background: var(--ground-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 1.25rem 1.5rem;
+  margin: 2rem 0 1rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  overflow-x: auto;
+  line-height: 1.8;
+  white-space: pre;
+}
+
+.agent-pre .kw  { color: var(--accent); opacity: 0.75; }
+.agent-pre .cm  { opacity: 0.4; }
+
+.agent-ref {
+  font-size: 0.72rem;
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--text-dim);
+  opacity: 0.65;
+  margin-top: 0.75rem;
+  line-height: 1.7;
+}
+
+.agent-ref a { color: var(--accent); text-decoration: none; }
+.agent-ref a:hover { text-decoration: underline; opacity: 1; }
+
+/* ── LIGHT THEME ───────────────────────────────────────────────── */
+
+[data-theme="light"] {
+  --ground:        #F2EDE4;
+  --ground-raised: #E9E3D9;
+  --surface:       #E9E3D9;
+  --text:          #1A1714;
+  --text-dim:      #7A6E62;
+  --accent:        #525252;
+  --rule:          #D0C8BC;
+}
+
+[data-theme="light"] .hero-veil {
+  background: radial-gradient(ellipse 55% 65% at 50% 50%,
+    rgba(242,237,228,.92) 0%,
+    rgba(242,237,228,.18) 100%);
+}
+
+[data-theme="light"] .btn-solid { color: #F2EDE4; }
+
+[data-theme="light"] .btn-outline { border-color: rgba(82,82,82,.3); }
+
+[data-theme="light"] .benefits p { border-left-color: rgba(82,82,82,.22); }
+
+/* ── THEME TOGGLE ──────────────────────────────────────────────── */
+
+#theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1.2rem;
+  z-index: 100;
+  background: var(--ground-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s, background-color 0.2s;
+}
+
+#theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+#theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#theme-toggle svg { width: 1rem; height: 1rem; display: block; }
+</style>
+<script type="application/ld+json">
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Shardnet",
+    "alternateName": "sh4rd",
+    "url": "https://shardnet.app/",
+    "logo": "https://shardnet.app/sh4rd-192.png",
+    "sameAs": [
+      "https://github.com/stablediffusion-ai/shard/"
+    ],
+    "contactPoint": [
+      { "@type": "ContactPoint", "email": "contact@shardnet.app",  "contactType": "customer support" },
+      { "@type": "ContactPoint", "email": "dev@shardnet.app",      "contactType": "technical support" },
+      { "@type": "ContactPoint", "email": "security@shardnet.app", "contactType": "security" }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Shardnet",
+    "url": "https://shardnet.app/",
+    "publisher": { "@type": "Organization", "name": "Shardnet" }
+  }
+]
+</script>
+<!-- Prevent FOUC: set theme before first paint -->
+<script>(function(){var s=localStorage.getItem('shard-theme');document.documentElement.dataset.theme=s||(matchMedia('(prefers-color-scheme:light)').matches?'light':'dark');}());</script>
+</head>
+<body>
+<button id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle theme"></button>
+<main>
+
+<!-- HERO -->
+<section class="hero" aria-labelledby="hero-title">
+  <canvas id="mesh" aria-hidden="true"></canvas>
+  <div class="hero-veil" aria-hidden="true"></div>
+  <div class="hero-content">
+    <h1 class="logo" id="hero-title">Shardnet</h1>
+    <p class="tagline">
+      Store and share files without servers.<br>
+      Encrypted on your device. Split across the network.<br>
+      Nothing to trust.
+    </p>
+    <div class="cta-row">
+      <a href="https://shardnet.app/shard-cli" class="btn btn-solid" download>↓ shard-cli</a>
+      <a href="https://shardnet.app/shard-gui" class="btn btn-outline" download>↓ shard-gui</a>
+    </div>
+    <p class="hero-ver">v0.97.0 &nbsp;·&nbsp; Linux x86_64 &nbsp;·&nbsp; static binary &nbsp;·&nbsp; no dependencies</p>
+  </div>
+</section>
+
+<!-- FACTS -->
+<section class="wrap facts" aria-label="Key properties">
+  <div class="fact" itemscope itemtype="https://schema.org/Thing">
+    <div class="fact-bar" aria-hidden="true"></div>
+    <div>
+      <h3 class="fact-tag">Encryption</h3>
+      <div class="fact-main">AES-256-GCM. The key never leaves your machine.</div>
+      <div class="fact-note">A magnet link encodes the file ID and the decryption key. No server ever sees either.</div>
+    </div>
+  </div>
+  <div class="fact">
+    <div class="fact-bar" aria-hidden="true"></div>
+    <div>
+      <h3 class="fact-tag">Erasure coding</h3>
+      <div class="fact-main">15 shards. Any 10 reconstruct the complete file.</div>
+      <div class="fact-note">Upload works from just 2 nodes. Five shards can be lost and the file still reconstructs. Reed-Solomon 10&thinsp;+&thinsp;5.</div>
+    </div>
+  </div>
+  <div class="fact">
+    <div class="fact-bar" aria-hidden="true"></div>
+    <div>
+      <h3 class="fact-tag">No infrastructure</h3>
+      <div class="fact-main">No accounts. No servers. No metadata.</div>
+      <div class="fact-note">Kademlia DHT for routing. QUIC/TLS for transport. Ed25519 for identity.</div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS (SEO-07) -->
+<div class="wrap benefits">
+  <p>Useful when the file must not touch a cloud provider — legal hold, sensitive IP,
+  or jurisdictions where data residency matters. Because there is no central index,
+  there is nothing to subpoena, block, or deplatform. The swarm continues to serve
+  a file as long as at least 10 of its 15 storage nodes remain online.</p>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="wrap steps-wrap" aria-labelledby="how-it-works">
+  <h2 class="steps-label" id="how-it-works">How a file travels</h2>
+  <p class="steps-intro">Your file leaves encrypted. Arrives in fifteen fragments.<br>Lives on no single machine.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3 class="step-title">Encrypt</h3>
+      <div class="step-body">A random key is generated locally. Your plaintext never touches the network.</div>
+      <div class="step-algo">AES-256-GCM</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3 class="step-title">Shard</h3>
+      <div class="step-body">The ciphertext splits into 15 fragments — 10 data, 5 parity. Any 10 rebuild the file.</div>
+      <div class="step-algo">Reed-Solomon</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3 class="step-title">Distribute</h3>
+      <div class="step-body">Each fragment goes to a different node over QUIC/TLS. You get one magnet link.</div>
+      <div class="step-algo">Kademlia DHT</div>
+    </div>
+  </div>
+</section>
+
+<!-- PROTOCOL TABLE (SEO-02 + SEO-03) -->
+<div class="wrap proto-wrap">
+  <div class="proto-label">Protocol stack</div>
+  <table class="proto-table">
+    <tbody>
+      <tr><td>Transport</td><td>QUIC (quinn 0.11) + TLS 1.3 (rustls)</td></tr>
+      <tr><td>Identity</td><td>Ed25519 — keypair generated locally on first run</td></tr>
+      <tr><td>Routing</td><td>Kademlia DHT — k=20, XOR metric, 256 buckets</td></tr>
+      <tr><td>Erasure coding</td><td>Reed-Solomon — 10 data + 5 parity shards</td></tr>
+      <tr><td>Encryption</td><td>AES-256-GCM — key never leaves the uploading node</td></tr>
+      <tr><td>Sybil resistance</td><td>Argon2id proof-of-work at node startup</td></tr>
+      <tr><td>Serialisation</td><td>Bincode — binary, length-prefixed frames</td></tr>
+      <tr><td>Rate limiting</td><td>Token bucket per source IP, sliding window</td></tr>
+      <tr><td>NAT traversal</td><td>STUN + UDP hole punching + TTL-bounded relay fallback</td></tr>
+      <tr><td>Address discovery</td><td>Interface scan — RFC1918, CGNAT (100.64/10), IPv6 aware</td></tr>
+      <tr><td>Dynamic IP</td><td>STUN refresh every 60 s — survives mobile and VPN IP changes</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECURITY PROPERTIES (SEO-01) -->
+<div class="wrap sec-wrap">
+  <div class="sec-label">Security properties</div>
+  <div class="sec-grid">
+    <div>
+      <div class="sec-name">Sybil resistance</div>
+      <div class="sec-body">Argon2id proof-of-work at node startup. Cheap identity flooding requires real CPU cost per identity.</div>
+    </div>
+    <div>
+      <div class="sec-name">Replay protection</div>
+      <div class="sec-body">SHA-256 message fingerprinting with sliding-window deduplication. Each packet carries a one-time nonce.</div>
+    </div>
+    <div>
+      <div class="sec-name">Rate limiting</div>
+      <div class="sec-body">Token-bucket per source IP — automatic burst absorption and eviction of stale buckets.</div>
+    </div>
+    <div>
+      <div class="sec-name">Packet integrity</div>
+      <div class="sec-body">10 MB hard payload cap. Checked arithmetic prevents integer overflow in length fields.</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOR AGENTS -->
+<section class="wrap steps-wrap" aria-labelledby="for-agents-heading">
+  <h2 class="steps-label" id="for-agents-heading">For agents</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3 class="step-title">Persist context</h3>
+      <div class="step-body">Upload any blob — JSON state, checkpoint, embedding. Get a magnet. Retrieve from any node, any session, any host.</div>
+      <div class="step-algo">POST /api/files/upload</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3 class="step-title">Coordinate</h3>
+      <div class="step-body">Ed25519-signed room chat over the P2P mesh. No broker to operate. Agents authenticate each other by node ID.</div>
+      <div class="step-algo">POST /api/chat/send</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3 class="step-title">Share artifacts</h3>
+      <div class="step-body">Store outputs, datasets, reports. Pass the magnet to downstream agents — whoever holds it can retrieve the file.</div>
+      <div class="step-algo">POST /api/files/download</div>
+    </div>
+  </div>
+  <pre class="agent-pre"><span class="cm"># save — upload context blob, receive magnet</span>
+curl -X POST http://localhost:9201/api/files/upload -F <span class="kw">"file=@ctx.json"</span>
+<span class="cm"># → {"magnet": "y36fKjLL…", "filename": "ctx.json"}</span>
+
+<span class="cm"># restore — download by magnet (any node, any session)</span>
+curl -X POST http://localhost:9201/api/files/download \
+     -H <span class="kw">"Content-Type: application/json"</span> \
+     -d <span class="kw">'{"magnet": "y36fKjLL…"}'</span>
+<span class="cm"># → {"path": "/path/to/downloads/ctx.json"}</span></pre>
+  <p class="agent-ref">
+    Full API reference (written for LLM consumption) &nbsp;→&nbsp; <a href="/llms-full.txt">llms-full.txt</a>
+    &nbsp;&nbsp;·&nbsp;&nbsp;
+    Runnable examples (Python · shell · Node.js) &nbsp;→&nbsp; <a href="https://github.com/stablediffusion-ai/shard/tree/main/examples">examples/</a>
+  </p>
+</section>
+
+<!-- WHAT YOU CAN BUILD -->
+<section class="wrap steps-wrap" aria-labelledby="usecases-heading">
+  <h2 class="steps-label" id="usecases-heading">What you can build</h2>
+  <div class="uc-grid">
+
+    <div class="uc-card">
+      <div class="uc-glyph">[ markdown ]</div>
+      <h3 class="uc-title">Decentralized publishing</h3>
+      <p class="uc-body">Write in Markdown. Upload with <code>/put</code> and share the magnet link.
+      Readers open it in the app — no browser, no web server needed.
+      The Reader tab renders Markdown up to 512&thinsp;KB.
+      Good for articles, docs, or wikis that should outlive any single host.</p>
+      <div class="uc-note">/read &lt;magnet&gt;</div>
+    </div>
+
+    <div class="uc-card">
+      <div class="uc-glyph">[ \x1f prefix ]</div>
+      <h3 class="uc-title">Agent coordination</h3>
+      <p class="uc-body">Chat messages prefixed with <code>\x1f</code> (ASCII Unit Separator) are
+      filtered from the terminal display for human users, but visible to API and WebSocket clients.
+      A straightforward pattern for coordinating bots or LLM agents in a shared room
+      without polluting the human-readable feed.</p>
+      <div class="uc-note">WS /ws &nbsp;·&nbsp; GET /api/status</div>
+    </div>
+
+    <div class="uc-card">
+      <div class="uc-glyph">[ 10 of 15 ]</div>
+      <h3 class="uc-title">Threshold access</h3>
+      <p class="uc-body">Every file splits into 15 fragments. Any 10 reconstruct it.
+      Spread the 15 locations across 15 separate nodes — no single party can reconstruct the file alone.
+      A Shamir-like custody pattern at the storage layer, with no extra cryptography required.</p>
+      <div class="uc-note">Note: the magnet link holds the AES key — secure it separately.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section class="dl-band" aria-labelledby="download-heading">
+  <div class="wrap">
+    <h2 class="dl-label" id="download-heading">Download &nbsp;·&nbsp; v0.97.0</h2>
+    <div class="dl-grid">
+      <div class="dl-card">
+        <div class="dl-name">shard-cli</div>
+        <div class="dl-desc">Terminal interface. Upload files, download by magnet, render markdown shards inline (<code style="font-size:0.8em;opacity:0.8">/read</code>), join chat rooms, inspect the routing table. Check node status and storage at any time with <code style="font-size:0.8em;opacity:0.8">/status</code>. Daemon mode (<code style="font-size:0.8em;opacity:0.8">--daemon</code>) and passive listen-only mode (<code style="font-size:0.8em;opacity:0.8">--passive</code>) for headless or observer deployments.<br><br><small style="opacity:0.55">Linux x86_64 · static binary</small></div>
+        <a href="https://shardnet.app/shard-cli" class="btn btn-solid" download>↓ Download shard-cli</a>
+      </div>
+      <div class="dl-card">
+        <div class="dl-name">shard-gui</div>
+        <div class="dl-desc">Web interface on port 9201. Monochrome browser UI: chat with peer display names and clickable magnet links, Reader tab for inline markdown preview, Files tab for upload/download. Storage quota and retention config visible in Settings. REST API and WebSocket event stream for scripts and agents.<br><br><small style="opacity:0.55">Linux x86_64 · static binary</small></div>
+        <a href="https://shardnet.app/shard-gui" class="btn btn-outline" download>↓ Download shard-gui</a>
+      </div>
+      <div class="dl-card">
+        <div class="dl-name">shard · Android</div>
+        <div class="dl-desc">Full node on your phone. Runs as a background service with a CPU WakeLock and QUIC keep-alive so peers stay connected even when the screen is off. Reconnects automatically on WiFi/LTE switch. Orientation changes are handled without restarting the activity. Same web UI at <code style="font-size:0.8em;opacity:0.8">127.0.0.1:9201</code> — chat, upload/download, Reader, and an Events log in the Files tab.<br><br><small style="opacity:0.55">Android 8+ · ARM64 / ARMv7 · APK</small></div>
+        <a href="shard_0.97.0.apk" class="btn btn-outline" download>↓ Download APK</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HASHES -->
+<section class="wrap hashes-wrap" aria-label="Checksums">
+  <h2 class="hashes-label">SHA-256 checksums &nbsp;·&nbsp; v0.97.0</h2>
+  <table class="hash-table">
+    <tbody>
+      <tr>
+        <td>shard-cli</td>
+        <td>1f635c18e5287cc90ff8fc17e2199c17c51c67b931b5e4e1d6b9b9c8a232dff1</td>
+      </tr>
+      <tr>
+        <td>shard-gui</td>
+        <td>113d5e17277298e10101ef3e1c47578f60ac98c5a699d9f8a4d6a3b0ed8d5fb1</td>
+      </tr>
+      <tr>
+        <td>shard_0.97.0.apk</td>
+        <td>1809b7a67ce1af8a551bc34884eb40e0c3fc14fbc142cadd213c7036f6161ca2</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+
+<!-- FAQ -->
+<section class="faq-wrap" aria-labelledby="faq-heading">
+  <h2 class="faq-label" id="faq-heading">FAQ</h2>
+
+  <details class="faq-item">
+    <summary>How do I send and receive messages?</summary>
+    <p>Open the <strong>Home</strong> tab and type a room name in the chat bar, then click <strong>Join</strong>. Any node that joins the same room name can exchange messages in real time. Messages are signed with your Ed25519 node identity and relayed over encrypted QUIC connections — no server, no account required. On the terminal CLI: <code>/join general</code> then type your message and press Enter.</p>
+  </details>
+
+  <details class="faq-item">
+    <summary>How do I upload and download a file?</summary>
+    <p>Open the <strong>Files</strong> tab. To upload, choose a file and click <strong>Upload</strong> — Shardnet encrypts it with AES-256-GCM, splits it into 15 Reed-Solomon shards (10 data + 5 parity), and distributes them across the swarm. You receive a magnet link to share. To download on any node, paste the magnet link and click <strong>Get</strong> — the file is reassembled from any 10 of the 15 shards found in the swarm, even if 5 peers are offline. CLI: <code>shard-cli upload &lt;file&gt;</code> and <code>shard-cli download &lt;magnet&gt;</code>.</p>
+  </details>
+
+  <details class="faq-item">
+    <summary>How do I read a markdown file stored on Shardnet?</summary>
+    <p>Open the <strong>Reader</strong> tab, paste the magnet link of a <code>.md</code> or <code>.markdown</code> file, and click <strong>Go</strong>. The file is fetched from the swarm, reassembled, and rendered inline with full markdown formatting — headings, code blocks, lists, and links. Maximum size for inline preview is 512 KB. In the terminal CLI, use <code>/read &lt;magnet&gt;</code> for an inline rendered view (<code>/browse</code> is kept as an alias for backwards compatibility).</p>
+  </details>
+
+  <details class="faq-item">
+    <summary>Who are the people named in the chat?</summary>
+    <p>Each node is assigned a short display name — a deterministic first name derived from its Ed25519 node ID. The same node always gets the same name on every peer, so you can recognise participants across sessions without exposing raw key material. To set a custom name for yourself, type <code>/name Alice</code> in the chat input — it is broadcast to the room so all other nodes immediately see your chosen name. Your preference is saved locally and re-announced each time you join a room. Magnet links shared in chat are highlighted in amber and clickable: clicking one opens the Reader tab with the link pre-filled.</p>
+  </details>
+
+</section>
+
+<!-- COMMUNITY -->
+<p class="privacy-note" style="opacity:0.65;border-bottom:1px solid var(--rule);padding-bottom:1.5rem;margin-bottom:0;">
+  Once your node is up, join <span style="color:var(--accent)">#general</span> for questions and feedback —
+  <span style="color:var(--text-dim)">shard-cli:</span> <code style="color:var(--accent);font-size:0.9em">/join general</code> &nbsp;·&nbsp;
+  <span style="color:var(--text-dim)">shard-gui / APK:</span> Chat tab → type <code style="color:var(--accent);font-size:0.9em">general</code> and hit Join &nbsp;·&nbsp;
+  then <code style="color:var(--accent);font-size:0.9em">/name yourname</code> to introduce yourself
+</p>
+
+<!-- PRIVACY NOTE (SEO-05) -->
+<p class="privacy-note">No IP logging. No central directory. No metadata stored outside the encrypted shard.
+Node identity is a local Ed25519 keypair generated on first run — never transmitted to a server.</p>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-contact">
+    <span>Shardnet &nbsp;·&nbsp; v0.97.0</span>
+    <a href="mailto:contact@shardnet.app">contact@shardnet.app</a>
+    <a href="mailto:dev@shardnet.app">dev@shardnet.app</a>
+    <a href="mailto:security@shardnet.app">security@shardnet.app</a>
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com/stablediffusion-ai/shard/" target="_blank" rel="noopener">GitHub</a>
+    <a href="/whitepaper">Whitepaper</a>
+    <a href="/llms.txt">llms.txt</a>
+    <a href="/llms-full.txt">llms-full.txt</a>
+  </div>
+</footer>
+
+<!-- MESH ANIMATION -->
+<script>
+(function () {
+  var canvas = document.getElementById('mesh');
+  if (!canvas) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  var ctx = canvas.getContext('2d');
+
+  function mc(a) {
+    var light = document.documentElement.dataset.theme === 'light';
+    return light ? 'rgba(82,82,82,' + a + ')' : 'rgba(168,200,255,' + a + ')';
+  }
+
+  // Fixed relative positions [rx, ry] for 15 nodes — deterministic, looks natural
+  var REL = [
+    [0.08, 0.18], [0.22, 0.72], [0.38, 0.11], [0.52, 0.60], [0.68, 0.22],
+    [0.85, 0.54], [0.16, 0.44], [0.32, 0.87], [0.48, 0.35], [0.63, 0.80],
+    [0.78, 0.13], [0.91, 0.40], [0.10, 0.80], [0.44, 0.54], [0.90, 0.85]
+  ];
+
+  var W, H, nodes;
+
+  function build() {
+    W = canvas.width  = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+    nodes = REL.map(function (p) {
+      return { x: p[0] * W, y: p[1] * H, born: false };
+    });
+  }
+
+  build();
+  window.addEventListener('resize', function() { build(); drawSettled(); });
+
+  var BIRTH_MS  = 110;
+  var LINES_MS  = 650;
+  var PULSE_MS  = 1300;
+  var MAX_RATIO = 0.40;
+
+  var phase     = 'nodes';
+  var phaseT    = null;
+  var lAlpha    = 0;
+
+  function drawSettled() {
+    ctx.clearRect(0, 0, W, H);
+    var md = Math.min(W, H) * MAX_RATIO;
+    ctx.lineWidth = 0.5;
+    for (var i = 0; i < nodes.length; i++) {
+      for (var j = i + 1; j < nodes.length; j++) {
+        var dx = nodes[i].x - nodes[j].x;
+        var dy = nodes[i].y - nodes[j].y;
+        if (dx * dx + dy * dy < md * md) {
+          ctx.strokeStyle = mc(0.09);
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    for (var i = 0; i < nodes.length; i++) {
+      ctx.fillStyle = (i === 0) ? mc(0.65) : mc(0.28);
+      ctx.beginPath();
+      ctx.arc(nodes[i].x, nodes[i].y, 2.4, 0, 6.2832);
+      ctx.fill();
+    }
+  }
+
+  window._shard_mesh_redraw = drawSettled;
+
+  function frame(ts) {
+    if (phaseT === null) phaseT = ts;
+    var e = ts - phaseT;
+    var md = Math.min(W, H) * MAX_RATIO;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // ── state machine ──
+    if (phase === 'nodes') {
+      var n = Math.floor(e / BIRTH_MS);
+      for (var i = 0; i < Math.min(n, nodes.length); i++) nodes[i].born = true;
+      lAlpha = 0;
+      if (n >= nodes.length) { phase = 'lines'; phaseT = ts; }
+    } else if (phase === 'lines') {
+      lAlpha = Math.min(e / LINES_MS, 1) * 0.16;
+      if (e >= LINES_MS) { phase = 'pulse'; phaseT = ts; }
+    } else if (phase === 'pulse') {
+      lAlpha = 0.16;
+      if (e >= PULSE_MS) { phase = 'done'; }
+    }
+
+    var pulseWave = (phase === 'pulse')
+      ? Math.sin(Math.min(e / PULSE_MS, 1) * Math.PI)
+      : 0;
+
+    // ── edges ──
+    ctx.lineWidth = 0.5;
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i].born) continue;
+      for (var j = i + 1; j < nodes.length; j++) {
+        if (!nodes[j].born) continue;
+        var dx = nodes[i].x - nodes[j].x;
+        var dy = nodes[i].y - nodes[j].y;
+        if (dx * dx + dy * dy < md * md) {
+          ctx.strokeStyle = mc(lAlpha);
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ── nodes ──
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i].born) continue;
+      var r = 2.4 + pulseWave * 2.0;
+      var a = (i === 0) ? (0.85 + pulseWave * 0.15) : (0.35 + pulseWave * 0.25);
+      ctx.fillStyle = mc(a);
+      ctx.beginPath();
+      ctx.arc(nodes[i].x, nodes[i].y, r, 0, 6.2832);
+      ctx.fill();
+    }
+
+    if (phase !== 'done') {
+      requestAnimationFrame(frame);
+    } else {
+      drawSettled();
+    }
+  }
+
+  requestAnimationFrame(frame);
+})();
+</script>
+
+<!-- THEME TOGGLE -->
+<script>
+(function () {
+  var SUN  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function apply(theme) {
+    document.documentElement.dataset.theme = theme;
+    var btn = document.getElementById('theme-toggle');
+    if (btn) btn.innerHTML = theme === 'light' ? MOON : SUN;
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.content = theme === 'light' ? '#F2EDE4' : '#100F0D';
+    if (window._shard_mesh_redraw) window._shard_mesh_redraw();
+  }
+
+  var btn = document.getElementById('theme-toggle');
+  apply(document.documentElement.dataset.theme || 'dark');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+      localStorage.setItem('shard-theme', next);
+      apply(next);
+    });
+  }
+})();
+</script>
+</body>
+</html>
